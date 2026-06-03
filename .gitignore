@@ -1,0 +1,42 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Large raw data
+data/
+US_Accidents_March23.csv
+
+# Model files
+*.joblib
+*.pickle
+*.h5
+*.keras
+*.pt
+*.pth
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*.swp
+
+# outputs/와 figures/는 보고서 작성용 결과이므로 GitHub에 포함 가능
+# outputs/
+# figures/
