@@ -1,0 +1,2 @@
+original_shape,sampled_shape,processed_shape,encoded_feature_count,train_size,validation_size,test_size,best_model,random_state,sample_size
+"(7728394, 34)","(100000, 34)","(100000, 38)",181,69997,15003,15000,Random Forest Balanced,42,100000
