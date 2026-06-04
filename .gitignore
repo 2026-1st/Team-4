@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Large raw dataset files
+US_Accidents_March23.csv
+US_Accidents*.csv
+
+# Optional: if raw data is stored in data folder
+data/US_Accidents_March23.csv
+data/US_Accidents*.csv
+
+# OS files
+.DS_Store
+Thumbs.db
