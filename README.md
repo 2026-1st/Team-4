@@ -1,262 +1,121 @@
-# US Accidents 교통사고 심각도 예측 프로젝트
-
-## 1. 프로젝트 개요
-
-본 프로젝트는 Kaggle의 **US Accidents (2016–2023)** 데이터를 활용하여 사고 발생 시간, 위치, 기상 조건, 도로 주변 시설물 정보를 바탕으로 교통사고 심각도(`Severity`)를 예측하는 지도학습 기반 다중분류 프로젝트입니다.
-
-사고 심각도는 `1, 2, 3, 4`의 네 개 클래스로 구성되어 있으며, 본 프로젝트에서는 이를 예측하기 위해 여러 기계학습 모델을 동일한 데이터 분할과 평가 지표로 비교합니다.
-
-## 2. 문제 정의
-
-- 문제 유형: 지도학습 기반 다중분류
-- 예측 대상: `Severity`
-- 클래스: `1`, `2`, `3`, `4`
-- 입력 변수: 시간, 위치, 기상, 도로환경, 도로 주변 시설물 관련 변수
-- 목표: 사고 당시 조건을 기반으로 사고 심각도를 예측하고, 심각도에 영향을 주는 주요 요인을 분석
-
-## 3. 데이터셋
-
-본 프로젝트는 Kaggle 공개 데이터셋인 **US Accidents (2016–2023)**를 사용합니다.
-
-| 항목 | 내용 |
-|---|---|
-| 데이터셋 | US Accidents (2016–2023) |
-| 출처 | Kaggle |
-| 원본 규모 | 약 7,728,394건 |
-| 수집 기간 | 2016년 2월 ~ 2023년 3월 |
-| 예측 목표 | 교통사고 심각도 `Severity` |
-| 라이선스 | CC BY-NC-SA 4.0 |
-| 다운로드 날짜 | 2026-05-08 |
-
-데이터 출처:  
-https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
-
-> 원본 CSV 파일은 용량이 크기 때문에 GitHub 저장소에는 포함하지 않습니다.  
-> 실행 시 Kaggle에서 `US_Accidents_March23.csv` 파일을 다운로드한 뒤 `data/` 폴더에 넣어야 합니다.
-
-## 4. 프로젝트 구조
-
-```text
-Team4_US_Accidents_Project/
-│
-├── README.md
-│
-├── data/
-│   └── US_Accidents_March23.csv        # 원본 데이터, GitHub 업로드 제외 권장
-│
-├── notebooks/
-│   └── Team4_US_Accidents_Multiclass_Project_split_explained.ipynb
-│
-├── src/
-│   └── team4_us_accidents_multiclass_project_split_explained.py
-│
-├── figures/
-│   └── eda_and_model_results.png
-│
-└── reports/
-    └── final_report.pdf
-```
-
-## 5. 사용한 주요 변수
-
-본 프로젝트에서는 원본 데이터의 여러 변수 중 사고 심각도 예측에 활용 가능한 변수를 선별하여 사용했습니다.
-
-### 시간 관련 변수
-
-- `Start_Time`
-- `End_Time`
-- `Year`
-- `Month`
-- `DayOfWeek`
-- `Hour`
-- `Is_Weekend`
-- `Season`
-- `Time_Period`
-- `Duration_Min`
-
-### 위치 관련 변수
-
-- `Start_Lat`
-- `Start_Lng`
-- `State`
-- `City`
-- `County`
-
-### 기상 관련 변수
-
-- `Temperature(F)`
-- `Humidity(%)`
-- `Pressure(in)`
-- `Visibility(mi)`
-- `Wind_Speed(mph)`
-- `Weather_Condition`
-
-### 도로환경 및 시설물 관련 변수
-
-- `Amenity`
-- `Bump`
-- `Crossing`
-- `Give_Way`
-- `Junction`
-- `No_Exit`
-- `Railway`
-- `Roundabout`
-- `Station`
-- `Stop`
-- `Traffic_Calming`
-- `Traffic_Signal`
-- `Turning_Loop`
-
-## 6. 분석 과정
-
-### 6.1 데이터 전처리
-
-- 필요한 컬럼만 선택하여 메모리 사용량 감소
-- 날짜형 변수 변환
-- 사고 지속시간 `Duration_Min` 생성
-- 월, 요일, 시간대, 계절 변수 생성
-- 결측치 처리
-- 범주형 변수 인코딩
-- 수치형 변수 스케일링
-- `Severity` 기준 층화 샘플링 적용
-
-### 6.2 데이터 분할
-
-모든 모델이 동일한 조건에서 비교될 수 있도록 같은 random seed와 같은 데이터 분할을 사용했습니다.
-
-- Train: 60%
-- Validation: 20%
-- Test: 20%
-
-또한 클래스 비율이 유지되도록 `stratify` 옵션을 사용했습니다.
-
-### 6.3 모델링
-
-다음 세 가지 기계학습 모델을 비교했습니다.
-
-1. Logistic Regression
-2. Random Forest
-3. HistGradientBoostingClassifier
-
-선택 과제로 TensorFlow 기반 MLP 모델 코드도 추가했습니다.
-
-## 7. 평가 지표
-
-본 프로젝트는 다중분류 문제이므로 단순 정확도뿐만 아니라 클래스 불균형을 고려할 수 있는 지표를 함께 사용했습니다.
-
-- Accuracy
-- Macro Precision
-- Macro Recall
-- Macro F1-score
-- Weighted F1-score
-- Confusion Matrix
-
-특히 `Macro F1-score`는 각 클래스를 동일한 비중으로 평가하므로, 클래스 불균형이 존재하는 사고 심각도 예측 문제에서 중요한 지표로 활용했습니다.
-
-## 8. 시각화
-
-보고서 요구사항을 충족하기 위해 EDA 및 모델 분석 과정에서 8개 이상의 그래프를 생성했습니다.
-
-주요 시각화 항목은 다음과 같습니다.
-
-- 사고 심각도 분포
-- 월별 사고 건수
-- 요일별 사고 건수
-- 시간대별 사고 건수
-- 주별 사고 건수
-- 사고 지속시간 분포
-- 기상 조건별 사고 분포
-- 수치형 변수 상관관계 히트맵
-- 모델별 성능 비교 그래프
-- 혼동행렬
-- 하이퍼파라미터 변화에 따른 성능 변화
-- 변수 중요도 그래프
-
-## 9. 실행 방법
-
-### 9.1 패키지 설치
-
-```bash
-pip install pandas numpy matplotlib seaborn scikit-learn
-```
-
-선택 과제인 MLP 모델까지 실행하려면 TensorFlow도 설치합니다.
-
-```bash
-pip install tensorflow
-```
-
-### 9.2 데이터 준비
-
-Kaggle에서 `US_Accidents_March23.csv` 파일을 다운로드한 뒤 아래 경로에 저장합니다.
-
-```text
-data/US_Accidents_March23.csv
-```
-
-### 9.3 노트북 실행
-
-Colab 또는 Jupyter Notebook에서 아래 파일을 실행합니다.
-
-```text
-notebooks/Team4_US_Accidents_Multiclass_Project_split_explained.ipynb
-```
-
-### 9.4 파이썬 스크립트 실행
-
-VS Code 또는 터미널에서 실행할 경우 다음 명령어를 사용합니다.
-
-```bash
-python src/team4_us_accidents_multiclass_project_split_explained.py
-```
-
-## 10. 실행 시 주의사항
-
-원본 데이터는 약 772만 건으로 매우 크기 때문에 로컬 환경이나 Colab 무료 버전에서는 실행 시간이 오래 걸릴 수 있습니다.
-
-코드의 `SAMPLE_SIZE` 값을 조정하면 실행 속도를 줄일 수 있습니다.
-
-```python
-SAMPLE_SIZE = 100_000
-```
-
-실행이 느릴 경우 다음과 같이 줄일 수 있습니다.
-
-```python
-SAMPLE_SIZE = 50_000
-```
-
-또는
-
-```python
-SAMPLE_SIZE = 30_000
-```
-
-## 11. 프로젝트 기대 효과
-
-본 프로젝트를 통해 사고 심각도와 관련된 시간, 기상, 위치, 도로환경 요인을 데이터 기반으로 파악할 수 있습니다.  
-이는 향후 위험구간 관리, 도로 시설 개선, 교통안전 정책 수립, 운전자 경고 시스템 설계 등에 기초자료로 활용될 수 있습니다.
-
-## 12. 프로젝트 한계
-
-- 미국 교통사고 데이터를 사용하므로 국내 교통환경에 바로 일반화하기 어렵습니다.
-- `Severity`는 실제 인명피해 정도가 아니라 교통 흐름에 미치는 영향 정도를 나타내므로 해석에 주의가 필요합니다.
-- 클래스 불균형이 존재하여 단순 정확도만으로 모델을 평가하기 어렵습니다.
-- 원본 데이터 크기가 매우 커서 샘플링 과정이 필요합니다.
-
-## 13. 팀원 역할
-
-| 이름 | 역할 |
-|---|---|
-| 정시영 | 데이터 수집, 데이터 명세 정리, 결측치·이상치 처리 |
-| 예상형 | EDA 시각화, 변수 분포 및 클래스 불균형 분석 |
-| 강우석 | 모델 구현, 성능 비교, 하이퍼파라미터 조정 |
-| 윤석민 | 결과 해석, Proposal·발표자료·README 작성 |
-
-## 14. 참고문헌
-
-- Moosavi, S. (2023). *US Accidents (2016–2023)*. Kaggle.  
-  https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
-
-- Moosavi, S., Samavatian, M. H., Parthasarathy, S., & Ramnath, R. (2019).  
-  *A Countrywide Traffic Accident Dataset*. arXiv:1906.05409.
+# US Accidents 다중분류 프로젝트 — 변경 이력 및 한계점 대처
+
+본 문서는 초기 버전(v2)에서 최종 버전(v6)까지의 변경 사항과, 식별된
+한계점에 대한 대처 내용을 정리한다.
+
+---
+
+## 1. 버전별 변경 요약
+
+| 버전 | 핵심 변경 |
+|------|-----------|
+| v2 | 초기 버전 (Colab 기반). 기본 EDA, 전처리, 6개 모델 비교, RF 하이퍼파라미터 분석 |
+| v3 | 한계점 보강을 위한 분석 추가 (누수 수정, XGBoost 공정 비교, SMOTE, Year 실험) |
+| v4 | 실행 환경을 Colab → VS Code(로컬)로 이전 |
+| v5 | Year ablation 전처리기 공유 버그 수정 |
+| v6 | Year dtype(int32) 미탐지 문제 수정 → ablation 정상 작동 |
+
+---
+
+## 2. v2 대비 주요 변경 사항
+
+### 2-1. 분석 내용 추가 (v3에서 반영)
+
+**(1) 전처리 정보 누수 제거**
+v2는 City/County의 상위 30개 범주를 전체 데이터 기준으로 계산하여
+train/test 분할 이전에 적용했다. 이 경우 valid/test의 분포 정보가
+train 전처리에 일부 새어드는 미세한 누수가 발생한다.
+v6에서는 상위 범주 목록을 **train 데이터에서만 학습**한 뒤 valid/test에
+동일하게 적용하도록 분할 이후로 이동했다. (섹션 21-1)
+
+**(2) 모델 비교 공정성 확보**
+v2는 Random Forest와 Logistic Regression Balanced에만 클래스 불균형
+보정(class_weight='balanced')을 적용했고, XGBoost에는 보정이 없었다.
+v6에서는 XGBoost에 `compute_sample_weight('balanced')`로 만든
+sample_weight를 적용하여 동일 조건으로 비교한다.
+(모델명: XGBoost → XGBoost Balanced)
+
+**(3) SMOTE 오버샘플링 비교 모델 추가**
+클래스 불균형에 직접 대응하기 위해, train 데이터에만 SMOTE를 적용한
+모델(HistGB + SMOTE)을 추가했다. 누수 방지를 위해 imbalanced-learn의
+Pipeline을 사용하여 오버샘플링이 학습 시에만 동작하도록 했다. (섹션 33-1)
+
+**(4) Year 변수 영향 실험(ablation) 추가**
+Year 변수를 포함한 모델과 제외한 모델의 성능을 비교하여, 모델이
+연도별 정보에 의존하는 정도를 정량적으로 측정한다. (섹션 33-2)
+
+### 2-2. 실행 환경 변경 (v4에서 반영)
+
+- `from google.colab import drive` 및 `drive.mount()` 제거
+- Google Drive 경로 → 로컬 다운로드 폴더 자동 탐색으로 변경
+- 패키지 설치를 `sys.executable -m pip` 방식으로 변경 (로컬 다중 Python
+  환경에서 설치-import 불일치 방지)
+
+### 2-3. 버그 수정 (v5, v6에서 반영)
+
+- v5: Year ablation에서 두 모델이 동일한 전처리기 객체를 공유하여
+  결과가 완전히 같게 나오던 문제를, 각 파이프라인이 새 전처리기를
+  사용하도록 수정.
+- v6: Year가 int32 타입이어서 `select_dtypes(['int64','float64'])`에
+  잡히지 않던 문제를 `include=['number']`로 수정. 이후 ablation 정상 작동.
+
+---
+
+## 3. 한계점 및 대처
+
+각 한계에 대해 "대처 방식"과 "결과"를 함께 정리한다. 대부분의 한계는
+완전히 제거되지 않으며, 대신 **시도와 측정을 통해 정직하게 확인**하였다.
+
+### 3-1. 클래스 불균형
+- **현상**: Severity 2가 약 79.7%, Severity 1은 0.87%, Severity 4는 2.6%.
+- **대처**: class_weight='balanced'(RF, LR), XGBoost sample_weight,
+  SMOTE 오버샘플링을 적용하여 비교.
+- **결과**: 소수 클래스 예측은 여전히 낮다 (Test 기준 Severity 1 f1 0.13,
+  Severity 4 f1 0.17). SMOTE의 Macro F1(0.343)도 Random Forest(0.385)를
+  넘지 못했다. 표본 자체가 부족하여 기법만으로는 근본 개선이 어렵다는
+  점을 데이터로 확인하였다.
+- **상태**: 완화 시도 → 근본 해결 불가 → 한계로 확정.
+
+### 3-2. Severity 정의의 한계
+- **현상**: Severity는 실제 부상·사망 여부가 아니라 사고의 교통 영향
+  수준에 가깝다.
+- **대처**: 데이터셋 정의 자체의 문제로 코드로 해결 불가.
+- **상태**: 해석상의 한계로 명시. 본 모델은 의학적 심각도가 아니라
+  영향 수준을 예측하는 것으로 해석해야 한다.
+
+### 3-3. 정보 누수 방지를 위한 변수 제외
+- **현상**: Distance(mi), End_Time, Duration_Min 등을 제외하면 성능이
+  낮아질 수 있음.
+- **대처**: 이는 한계라기보다 의도적 설계 선택이다. 해당 변수들은 사고
+  발생 시점에 알 수 없으므로, 성능을 일부 포기하더라도 실사용 가능한
+  모델을 구성하였다. 추가로 City/County 전처리상의 누수도 제거하였다.
+- **상태**: 올바른 설계 선택으로 유지 + 전처리 누수 추가 수정.
+
+### 3-4. 지역 편향 가능성
+- **현상**: 미국 전체 데이터지만 특정 주·도시의 기록이 많을 수 있음.
+- **대처**: Feature Importance로 위치 변수의 영향력을 측정.
+- **결과**: Start_Lng, Start_Lat가 중요도 1·2위로 확인되어, 모델이
+  위치에 크게 의존함을 정량적으로 보였다. 편향을 제거한 것이 아니라
+  편향 우려가 실제로 근거 있음을 확인하였다.
+- **상태**: 해결 불가 → 증거 확보.
+
+### 3-5. 시간 변화 문제
+- **현상**: 연도별 데이터 수집 방식, 교통량, 정책 변화 등이 모델에
+  영향을 줄 수 있음.
+- **대처**: Year 변수 ablation 실험 수행.
+- **결과**: Year 제거 시 Macro F1이 0.444 → 0.385, Balanced Accuracy가
+  0.426 → 0.374로 하락. Year가 예측에 기여하나, 이는 모델이 연도별
+  수집 편향을 학습하고 있을 가능성을 시사한다. 미래/타 기간으로의
+  일반화 관점에서는 한계로 해석해야 한다.
+- **상태**: 해결 불가 → 정량화.
+
+---
+
+## 4. 핵심 결과 (참고)
+
+- **최종 모델**: Random Forest (Validation Macro F1 기준 선택)
+- **Test 성능**: Accuracy 0.758, Macro F1 0.405, Balanced Accuracy 0.407
+- **주목할 점**: Dummy Baseline의 Accuracy(0.797)가 Random Forest(0.758)
+  보다 높지만, Macro F1은 RF(0.405)가 Dummy(0.222)의 약 2배다. 이는
+  클래스 불균형 상황에서 Accuracy가 아니라 Macro F1으로 모델을 평가해야
+  하는 이유를 직접 보여준다.
