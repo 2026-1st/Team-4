@@ -228,3 +228,17 @@ data/US_Accidents*.csv
 # OS files
 .DS_Store
 Thumbs.db
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Streamlit local files
+.streamlit/
+
+# Large raw dataset files
+US_Accidents_March23.csv
+US_Accidents*.csv
+data/US_Accidents_March23.csv
+data/US_Accidents*.csv
