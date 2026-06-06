@@ -1,2 +1,2 @@
-original_shape,sampled_shape,processed_shape,encoded_feature_count,train_size,validation_size,test_size,best_model,random_state,sample_size
-"(7728394, 34)","(100000, 34)","(100000, 38)",181,69997,15003,15000,RF Balanced min_samples_leaf=5,42,100000
+original_shape,sampled_shape,processed_shape,encoded_feature_count,train_size,validation_size,test_size,best_model,validation_macro_f1,test_macro_f1,test_accuracy,random_state,sample_size
+"(7728394, 34)","(100000, 34)","(100000, 38)",182,69997,15003,15000,RF Balanced min_samples_leaf=5,0.47793474221917764,0.4770128465573064,0.7603333333333333,42,100000
