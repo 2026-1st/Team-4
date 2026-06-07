@@ -1,5 +1,6 @@
 # app.py
 # Streamlit 기반 US Accidents Severity 예측 웹앱
+# 사용자가 직접 사고 정보를 입력하면 학습된 모델이 Severity를 예측한다.
 
 from pathlib import Path
 import numpy as np
@@ -11,6 +12,7 @@ ARTIFACT_PATH = Path("streamlit_artifacts/severity_app_artifacts.joblib")
 
 
 def weather_group(x):
+    """노트북 전처리와 동일하게 Weather_Condition을 단순 Weather_Group으로 변환한다."""
     if pd.isna(x):
         return "Unknown"
 
@@ -33,6 +35,7 @@ def weather_group(x):
 
 
 def to_binary(value):
+    """Yes/No, True/False, 1/0 형태 입력을 0 또는 1로 변환한다."""
     if pd.isna(value):
         return np.nan
 
@@ -52,6 +55,10 @@ def to_binary(value):
         return 0
 
     return np.nan
+
+
+def yes_no_to_bool_text(value):
+    return "Yes" if value == "Yes" else "No"
 
 
 @st.cache_resource
@@ -76,6 +83,10 @@ def load_artifacts():
 
 
 def preprocess_user_input(user_input, artifacts):
+    """
+    사용자가 입력한 사고 정보를 학습 데이터와 동일한 형태로 전처리한다.
+    노트북에서 저장한 artifacts를 사용하므로 학습 당시 컬럼, 중앙값, 최빈값, 스케일러 기준을 그대로 따른다.
+    """
     row = {}
     for col in artifacts["raw_input_cols"]:
         row[col] = user_input.get(col, np.nan)
@@ -116,8 +127,8 @@ def preprocess_user_input(user_input, artifacts):
             user_df[col] = user_df[col].where(user_df[col].isin(top_values), "Other")
 
     # 결측치 처리
-    num_cols = artifacts["num_cols"]
-    cat_cols = artifacts["cat_cols"]
+    num_cols = list(artifacts["num_cols"])
+    cat_cols = list(artifacts["cat_cols"])
 
     if len(num_cols) > 0:
         user_df[num_cols] = user_df[num_cols].apply(pd.to_numeric, errors="coerce")
@@ -135,8 +146,8 @@ def preprocess_user_input(user_input, artifacts):
 
     # 표준화
     user_scaled = user_encoded.copy()
-    scale_cols = artifacts["scale_cols"]
-    if scale_cols:
+    scale_cols = list(artifacts.get("scale_cols", []))
+    if len(scale_cols) > 0:
         user_scaled[scale_cols] = artifacts["scaler"].transform(user_scaled[scale_cols])
 
     return user_scaled
@@ -170,75 +181,150 @@ def predict_severity(user_input, artifacts):
 # =========================
 # Streamlit 화면
 # =========================
-st.set_page_config(page_title="US Accidents Severity 예측", page_icon="🚗", layout="centered")
+st.set_page_config(page_title="US Accidents Severity 예측", page_icon="🚗", layout="wide")
 
 st.title("🚗 교통사고 Severity 예측 웹앱")
-st.write("사용자가 사고 정보를 입력하면 학습된 모델이 사고 심각도 등급을 예측합니다.")
+st.write("사고 시간, 위치, 기상 조건, 도로 환경 정보를 입력하면 학습된 모델이 사고 심각도 등급을 예측합니다.")
 
 artifacts = load_artifacts()
-
 st.info(f"현재 사용 모델: {artifacts['best_model_name']}")
 
-col1, col2 = st.columns(2)
+yes_no_options = ["Yes", "No"]
+weather_options = ["Clear", "Cloudy", "Rain", "Snow", "Fog", "Storm", "Other"]
+timezone_options = [
+    "US/Pacific",
+    "US/Mountain",
+    "US/Central",
+    "US/Eastern",
+    "US/Arizona",
+    "US/Alaska",
+    "US/Hawaii",
+]
+wind_direction_options = [
+    "CALM", "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW", "VAR"
+]
+day_night_options = ["Day", "Night"]
 
-with col1:
-    hour = st.number_input("사고 시간", min_value=0, max_value=23, value=18, step=1)
-    month = st.number_input("월", min_value=1, max_value=12, value=7, step=1)
-    state = st.text_input("주", value="CA")
-    city = st.text_input("도시", value="Los Angeles")
-    weather = st.selectbox("날씨", ["Clear", "Cloudy", "Rain", "Snow", "Fog", "Storm", "Other"], index=2)
+with st.form("severity_prediction_form"):
+    st.subheader("1) 사고 기본 정보")
+    col1, col2, col3, col4 = st.columns(4)
 
-with col2:
-    temperature = st.number_input("기온(F)", value=65.0, step=1.0)
-    humidity = st.number_input("습도(%)", min_value=0.0, max_value=100.0, value=80.0, step=1.0)
-    visibility = st.number_input("가시거리(mi)", min_value=0.0, value=3.0, step=0.5)
-    traffic_signal = st.selectbox("신호등 여부", ["Yes", "No"], index=0)
-    crossing = st.selectbox("교차로 여부", ["Yes", "No"], index=0)
+    with col1:
+        accident_date = st.date_input("사고 날짜", value=pd.to_datetime("2023-07-15").date())
+        hour = st.number_input("사고 시간", min_value=0, max_value=23, value=18, step=1)
+    with col2:
+        state = st.text_input("주(State)", value="CA")
+        city = st.text_input("도시(City)", value="Los Angeles")
+    with col3:
+        county = st.text_input("카운티(County)", value="Los Angeles")
+        timezone = st.selectbox("시간대(Timezone)", timezone_options, index=0)
+    with col4:
+        start_lat = st.number_input("위도(Start_Lat)", value=34.0522, format="%.6f")
+        start_lng = st.number_input("경도(Start_Lng)", value=-118.2437, format="%.6f")
 
-# 사용자가 입력하지 않은 변수는 학습 데이터의 중앙값/최빈값으로 대체되도록 최소 입력만 구성
-start_time = f"2023-{int(month):02d}-15 {int(hour):02d}:00:00"
+    st.subheader("2) 기상 정보")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        weather = st.selectbox("날씨", weather_options, index=2)
+        temperature = st.number_input("기온(F)", value=65.0, step=1.0)
+    with col2:
+        wind_chill = st.number_input("체감온도(F)", value=65.0, step=1.0)
+        humidity = st.number_input("습도(%)", min_value=0.0, max_value=100.0, value=80.0, step=1.0)
+    with col3:
+        pressure = st.number_input("기압(in)", min_value=0.0, value=29.9, step=0.1)
+        visibility = st.number_input("가시거리(mi)", min_value=0.0, value=3.0, step=0.5)
+    with col4:
+        wind_speed = st.number_input("풍속(mph)", min_value=0.0, value=5.0, step=0.5)
+        wind_direction = st.selectbox("풍향", wind_direction_options, index=0)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        precipitation_unknown = st.checkbox("강수량 정보 없음", value=False)
+    with col2:
+        precipitation = st.number_input(
+            "강수량(in)",
+            min_value=0.0,
+            value=0.0,
+            step=0.01,
+            disabled=precipitation_unknown,
+        )
+
+    st.subheader("3) 주야간 및 도로 환경 정보")
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        sunrise_sunset = st.selectbox("주야간(Sunrise/Sunset)", day_night_options, index=0)
+        traffic_signal = st.selectbox("신호등 여부", yes_no_options, index=0)
+        junction = st.selectbox("교차로 여부", yes_no_options, index=0)
+        crossing = st.selectbox("횡단보도 여부", yes_no_options, index=0)
+
+    with col2:
+        stop = st.selectbox("정지표지판 여부", yes_no_options, index=1)
+        station = st.selectbox("역/정류장 여부", yes_no_options, index=1)
+        railway = st.selectbox("철도 인접 여부", yes_no_options, index=1)
+        roundabout = st.selectbox("회전교차로 여부", yes_no_options, index=1)
+
+    with col3:
+        amenity = st.selectbox("편의시설 인접 여부", yes_no_options, index=1)
+        bump = st.selectbox("과속방지턱 여부", yes_no_options, index=1)
+        traffic_calming = st.selectbox("교통정온화시설 여부", yes_no_options, index=1)
+        give_way = st.selectbox("양보표지 여부", yes_no_options, index=1)
+
+    with col4:
+        no_exit = st.selectbox("막다른 길 여부", yes_no_options, index=1)
+        turning_loop = st.selectbox("Turning Loop 여부", yes_no_options, index=1)
+        civil_twilight = st.selectbox("Civil Twilight", day_night_options, index=0)
+        nautical_twilight = st.selectbox("Nautical Twilight", day_night_options, index=0)
+        astronomical_twilight = st.selectbox("Astronomical Twilight", day_night_options, index=0)
+
+    submitted = st.form_submit_button("예측하기", type="primary")
+
+
+start_time = f"{accident_date.strftime('%Y-%m-%d')} {int(hour):02d}:00:00"
+precipitation_value = np.nan if precipitation_unknown else precipitation
 
 user_input = {
     "Start_Time": start_time,
-    "State": state,
-    "City": city,
-    "County": city,
-    "Weather_Condition": weather,
+    "Start_Lat": start_lat,
+    "Start_Lng": start_lng,
+    "State": state.strip().upper(),
+    "County": county.strip(),
+    "City": city.strip(),
+    "Timezone": timezone,
+
     "Temperature(F)": temperature,
+    "Wind_Chill(F)": wind_chill,
     "Humidity(%)": humidity,
+    "Pressure(in)": pressure,
     "Visibility(mi)": visibility,
-    "Traffic_Signal": traffic_signal,
+    "Wind_Direction": wind_direction,
+    "Wind_Speed(mph)": wind_speed,
+    "Precipitation(in)": precipitation_value,
+    "Weather_Condition": weather,
+
+    "Sunrise_Sunset": sunrise_sunset,
+    "Civil_Twilight": civil_twilight,
+    "Nautical_Twilight": nautical_twilight,
+    "Astronomical_Twilight": astronomical_twilight,
+
+    "Amenity": amenity,
+    "Bump": bump,
     "Crossing": crossing,
-
-    # 사용자가 입력하지 않는 주요 숫자형 변수는 NaN으로 두면 학습 데이터 중앙값으로 채워짐
-    "Start_Lat": np.nan,
-    "Start_Lng": np.nan,
-    "Wind_Chill(F)": np.nan,
-    "Pressure(in)": np.nan,
-    "Wind_Speed(mph)": np.nan,
-    "Precipitation(in)": np.nan,
-    "Wind_Direction": np.nan,
-    "Timezone": np.nan,
-    "Sunrise_Sunset": np.nan,
-    "Civil_Twilight": np.nan,
-    "Nautical_Twilight": np.nan,
-    "Astronomical_Twilight": np.nan,
-
-    # 도로 환경 변수 기본값
-    "Amenity": "No",
-    "Bump": "No",
-    "Give_Way": "No",
-    "Junction": "No",
-    "No_Exit": "No",
-    "Railway": "No",
-    "Roundabout": "No",
-    "Station": "No",
-    "Stop": "No",
-    "Traffic_Calming": "No",
-    "Turning_Loop": "No",
+    "Give_Way": give_way,
+    "Junction": junction,
+    "No_Exit": no_exit,
+    "Railway": railway,
+    "Roundabout": roundabout,
+    "Station": station,
+    "Stop": stop,
+    "Traffic_Calming": traffic_calming,
+    "Traffic_Signal": traffic_signal,
+    "Turning_Loop": turning_loop,
 }
 
-if st.button("예측하기", type="primary"):
+if submitted:
     pred, probability = predict_severity(user_input, artifacts)
     description = artifacts["severity_description"].get(pred, "정의되지 않은 Severity")
 
@@ -249,6 +335,10 @@ if st.button("예측하기", type="primary"):
         prob_df = pd.DataFrame({
             "Severity": list(probability.keys()),
             "Probability": list(probability.values()),
-        })
+        }).sort_values("Severity")
+
         st.subheader("Severity별 예측 확률")
         st.dataframe(prob_df, use_container_width=True, hide_index=True)
+
+    with st.expander("입력값 확인"):
+        st.json(user_input)
