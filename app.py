@@ -7,8 +7,12 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import joblib
+import folium
+from streamlit_folium import st_folium
+from sklearn.neighbors import BallTree
 
 ARTIFACT_PATH = Path("streamlit_artifacts/severity_app_artifacts.joblib")
+LOCATION_REF_PATH = Path("streamlit_artifacts/location_reference.csv")
 
 
 def weather_group(x):
@@ -93,9 +97,8 @@ def preprocess_user_input(user_input, artifacts):
 
     user_df = pd.DataFrame([row])
 
-    # Start_Time에서 파생 변수 생성
+    # Start_Time에서 Month, DayOfWeek, Hour 파생 변수 생성
     user_df["Start_Time"] = pd.to_datetime(user_df["Start_Time"], errors="coerce")
-    user_df["Year"] = user_df["Start_Time"].dt.year
     user_df["Month"] = user_df["Start_Time"].dt.month
     user_df["DayOfWeek"] = user_df["Start_Time"].dt.dayofweek
     user_df["Hour"] = user_df["Start_Time"].dt.hour
@@ -178,13 +181,61 @@ def predict_severity(user_input, artifacts):
     return pred, probability
 
 
+
+
+@st.cache_resource
+def load_location_reference():
+    """지도 클릭 좌표를 State/City/County/Timezone으로 자동 변환하기 위한 참조 데이터를 불러온다."""
+    if not LOCATION_REF_PATH.exists():
+        return None, None
+
+    loc_df = pd.read_csv(LOCATION_REF_PATH)
+    required_cols = ["Start_Lat", "Start_Lng", "State", "City", "County", "Timezone"]
+    missing_cols = [col for col in required_cols if col not in loc_df.columns]
+    if missing_cols:
+        st.warning(f"위치 참조 파일에 필요한 컬럼이 없습니다: {missing_cols}")
+        return None, None
+
+    loc_df = loc_df.dropna(subset=["Start_Lat", "Start_Lng"]).copy()
+    loc_df["Start_Lat"] = pd.to_numeric(loc_df["Start_Lat"], errors="coerce")
+    loc_df["Start_Lng"] = pd.to_numeric(loc_df["Start_Lng"], errors="coerce")
+    loc_df = loc_df.dropna(subset=["Start_Lat", "Start_Lng"])
+
+    if len(loc_df) == 0:
+        return None, None
+
+    coords_rad = np.radians(loc_df[["Start_Lat", "Start_Lng"]].values)
+    tree = BallTree(coords_rad, metric="haversine")
+    return loc_df, tree
+
+
+def find_nearest_location(lat, lng, loc_df, tree):
+    """클릭한 위도/경도와 가장 가까운 기존 사고 지점의 위치 정보를 반환한다."""
+    query_point = np.radians([[lat, lng]])
+    distance, index = tree.query(query_point, k=1)
+    nearest = loc_df.iloc[int(index[0][0])]
+
+    earth_radius_km = 6371.0
+    distance_km = float(distance[0][0] * earth_radius_km)
+
+    return {
+        "Start_Lat": float(lat),
+        "Start_Lng": float(lng),
+        "State": "" if pd.isna(nearest.get("State", "")) else str(nearest.get("State", "")),
+        "City": "" if pd.isna(nearest.get("City", "")) else str(nearest.get("City", "")),
+        "County": "" if pd.isna(nearest.get("County", "")) else str(nearest.get("County", "")),
+        "Timezone": "" if pd.isna(nearest.get("Timezone", "")) else str(nearest.get("Timezone", "")),
+        "distance_km": distance_km,
+    }
+
+
 # =========================
 # Streamlit 화면
 # =========================
 st.set_page_config(page_title="US Accidents Severity 예측", page_icon="🚗", layout="wide")
 
 st.title("🚗 교통사고 Severity 예측 웹앱")
-st.write("사고 시간, 위치, 기상 조건, 도로 환경 정보를 입력하면 학습된 모델이 사고 심각도 등급을 예측합니다.")
+st.write("지도에서 사고 위치를 선택하고, 기상 조건과 도로 환경 정보를 입력하면 학습된 모델이 사고 심각도 등급을 예측합니다.")
 
 artifacts = load_artifacts()
 st.info(f"현재 사용 모델: {artifacts['best_model_name']}")
@@ -206,24 +257,100 @@ wind_direction_options = [
 ]
 day_night_options = ["Day", "Night"]
 
+# -------------------------
+# 지도 기반 위치 자동 입력
+# -------------------------
+st.subheader("1) 사고 위치 선택")
+loc_df, loc_tree = load_location_reference()
+
+if loc_df is None or loc_tree is None:
+    st.warning(
+        "위치 참조 파일(streamlit_artifacts/location_reference.csv)을 찾지 못했습니다. "
+        "노트북에서 위치 참조 파일 저장 셀을 실행하면 지도 클릭으로 위치 정보가 자동 설정됩니다. "
+        "현재는 기본값을 사용하거나 직접 수정할 수 있습니다."
+    )
+
+if "selected_location" not in st.session_state:
+    st.session_state.selected_location = {
+        "Start_Lat": 34.0522,
+        "Start_Lng": -118.2437,
+        "State": "CA",
+        "City": "Los Angeles",
+        "County": "Los Angeles",
+        "Timezone": "US/Pacific",
+        "distance_km": 0.0,
+    }
+
+selected_location = st.session_state.selected_location
+
+st.caption("미국 지도에서 사고 위치를 클릭하면 위도·경도와 가장 가까운 사고 데이터 기준의 주, 도시, 카운티, 시간대가 자동 입력됩니다.")
+
+m = folium.Map(
+    location=[selected_location["Start_Lat"], selected_location["Start_Lng"]],
+    zoom_start=5,
+    tiles="OpenStreetMap",
+)
+folium.Marker(
+    [selected_location["Start_Lat"], selected_location["Start_Lng"]],
+    tooltip="현재 선택 위치",
+    popup=(
+        f"{selected_location.get('City', '')}, "
+        f"{selected_location.get('State', '')}<br>"
+        f"Lat: {selected_location['Start_Lat']:.6f}, "
+        f"Lng: {selected_location['Start_Lng']:.6f}"
+    ),
+).add_to(m)
+
+map_result = st_folium(m, width=None, height=450, key="accident_location_map")
+
+if map_result and map_result.get("last_clicked") is not None:
+    clicked_lat = float(map_result["last_clicked"]["lat"])
+    clicked_lng = float(map_result["last_clicked"]["lng"])
+
+    # 같은 좌표 클릭으로 무한 rerun되는 것을 방지
+    prev_lat = float(st.session_state.selected_location["Start_Lat"])
+    prev_lng = float(st.session_state.selected_location["Start_Lng"])
+    if abs(clicked_lat - prev_lat) > 1e-6 or abs(clicked_lng - prev_lng) > 1e-6:
+        if loc_df is not None and loc_tree is not None:
+            st.session_state.selected_location = find_nearest_location(clicked_lat, clicked_lng, loc_df, loc_tree)
+        else:
+            st.session_state.selected_location.update({
+                "Start_Lat": clicked_lat,
+                "Start_Lng": clicked_lng,
+                "distance_km": 0.0,
+            })
+        st.rerun()
+
+selected_location = st.session_state.selected_location
+if selected_location.get("distance_km", 0.0) > 0:
+    st.caption(
+        f"선택 좌표와 가장 가까운 기존 사고 데이터를 기준으로 위치 정보를 설정했습니다. "
+        f"최근접 거리: {selected_location['distance_km']:.2f} km"
+    )
+
+# -------------------------
+# 입력 폼
+# -------------------------
 with st.form("severity_prediction_form"):
-    st.subheader("1) 사고 기본 정보")
+    st.subheader("2) 사고 기본 정보")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         accident_date = st.date_input("사고 날짜", value=pd.to_datetime("2023-07-15").date())
         hour = st.number_input("사고 시간", min_value=0, max_value=23, value=18, step=1)
     with col2:
-        state = st.text_input("주(State)", value="CA")
-        city = st.text_input("도시(City)", value="Los Angeles")
+        state = st.text_input("주(State)", value=str(selected_location.get("State", "CA")))
+        city = st.text_input("도시(City)", value=str(selected_location.get("City", "Los Angeles")))
     with col3:
-        county = st.text_input("카운티(County)", value="Los Angeles")
-        timezone = st.selectbox("시간대(Timezone)", timezone_options, index=0)
+        county = st.text_input("카운티(County)", value=str(selected_location.get("County", "Los Angeles")))
+        selected_tz = str(selected_location.get("Timezone", "US/Pacific"))
+        tz_index = timezone_options.index(selected_tz) if selected_tz in timezone_options else 0
+        timezone = st.selectbox("시간대(Timezone)", timezone_options, index=tz_index)
     with col4:
-        start_lat = st.number_input("위도(Start_Lat)", value=34.0522, format="%.6f")
-        start_lng = st.number_input("경도(Start_Lng)", value=-118.2437, format="%.6f")
+        start_lat = st.number_input("위도(Start_Lat)", value=float(selected_location.get("Start_Lat", 34.0522)), format="%.6f")
+        start_lng = st.number_input("경도(Start_Lng)", value=float(selected_location.get("Start_Lng", -118.2437)), format="%.6f")
 
-    st.subheader("2) 기상 정보")
+    st.subheader("3) 기상 정보")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -251,7 +378,7 @@ with st.form("severity_prediction_form"):
             disabled=precipitation_unknown,
         )
 
-    st.subheader("3) 주야간 및 도로 환경 정보")
+    st.subheader("4) 주야간 및 도로 환경 정보")
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
